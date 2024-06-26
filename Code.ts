@@ -186,14 +186,13 @@ function onFormSubmit(e: GoogleAppsScript.Events.FormsOnFormSubmit) {
 	}, {} as ResponseData);
 
 	try {
-		createBill(responseData);
+		const bill = createBill(responseData);
+		sendDiscordWebhook(prepareWebhookPayload(responseData, bill.Bill.Id));
 	} catch (err) {
-		// Send an email to the finance team if an error occurs
-		MailApp.sendEmail(
-			"finance@hackthehill.com",
-			"Error creating bill",
-			`Error creating bill: ${err.message}`,
-		);
+		// Send a Discord webhook with the error message
+		sendDiscordWebhook({
+			content: `Error: ${err.message}`,
+		});
 		throw err;
 	}
 	return 0;
@@ -202,16 +201,12 @@ function onFormSubmit(e: GoogleAppsScript.Events.FormsOnFormSubmit) {
 //#region Helpers
 
 function getVendor(responseData: ResponseData) {
-	const QUICKBOOKS_COMPANY_ID = getScriptProperties().getProperty(
-		"QUICKBOOKS_COMPANY_ID",
-	);
-
 	// Query the QuickBooks API to find the vendor
 	const vendorQuery = `SELECT * FROM Vendor WHERE DisplayName = '${responseData["Full Name"]}'`;
 	const VendorQueryResponse = fetchJSON(
-		`${BASE_URL}${QUICKBOOKS_COMPANY_ID}/query?query=${encodeURIComponent(
-			vendorQuery,
-		)}`,
+		`${BASE_URL}${getEnv(
+			"QUICKBOOKS_COMPANY_ID",
+		)}/query?query=${encodeURIComponent(vendorQuery)}`,
 		{
 			method: "get",
 		},
@@ -220,16 +215,19 @@ function getVendor(responseData: ResponseData) {
 
 	// Create the vendor if it doesn't exist
 	if (vendors.length === 0) {
-		vendors[0] = fetchJSON(`${BASE_URL}${QUICKBOOKS_COMPANY_ID}/vendor`, {
-			method: "post",
-			contentType: "application/json",
-			payload: JSON.stringify({
-				PrimaryEmailAddr: {
-					Address: responseData["Email Address"],
-				},
-				DisplayName: responseData["Full Name"],
-			}),
-		});
+		vendors[0] = fetchJSON(
+			`${BASE_URL}${getEnv("QUICKBOOKS_COMPANY_ID")}/vendor`,
+			{
+				method: "post",
+				contentType: "application/json",
+				payload: JSON.stringify({
+					PrimaryEmailAddr: {
+						Address: responseData["Email Address"],
+					},
+					DisplayName: responseData["Full Name"],
+				}),
+			},
+		);
 		Logger.log(`Vendor created: ${responseData["Full Name"]}`);
 	} else if (vendors.length > 1) {
 		throw new Error(`Multiple vendors found: ${responseData["Full Name"]}`);
@@ -243,16 +241,12 @@ function getVendor(responseData: ResponseData) {
 }
 
 function getAccount(responseData: ResponseData) {
-	const QUICKBOOKS_COMPANY_ID = getScriptProperties().getProperty(
-		"QUICKBOOKS_COMPANY_ID",
-	);
-
 	// Query the QuickBooks API to get the account
 	const accountQuery = `SELECT * FROM Account WHERE AccountType = 'Expense'`;
 	const accountQueryResponse = fetchJSON(
-		`${BASE_URL}${QUICKBOOKS_COMPANY_ID}/query?query=${encodeURIComponent(
-			accountQuery,
-		)}`,
+		`${BASE_URL}${getEnv(
+			"QUICKBOOKS_COMPANY_ID",
+		)}/query?query=${encodeURIComponent(accountQuery)}`,
 		{
 			method: "get",
 		},
@@ -280,16 +274,12 @@ function getAccount(responseData: ResponseData) {
 }
 
 function getClass(responseData: ResponseData) {
-	const QUICKBOOKS_COMPANY_ID = getScriptProperties().getProperty(
-		"QUICKBOOKS_COMPANY_ID",
-	);
-
 	// Query the QuickBooks API to get the class
 	const classQuery = `SELECT * FROM Class WHERE Name = '${responseData["Class"]}'`;
 	const ClassQueryResponse = fetchJSON(
-		`${BASE_URL}${QUICKBOOKS_COMPANY_ID}/query?query=${encodeURIComponent(
-			classQuery,
-		)}`,
+		`${BASE_URL}${getEnv(
+			"QUICKBOOKS_COMPANY_ID",
+		)}/query?query=${encodeURIComponent(classQuery)}`,
 		{
 			method: "get",
 		},
@@ -311,15 +301,11 @@ function getClass(responseData: ResponseData) {
 }
 
 function getNextBillNumber() {
-	const QUICKBOOKS_COMPANY_ID = getScriptProperties().getProperty(
-		"QUICKBOOKS_COMPANY_ID",
-	);
-
 	const billQuery = `SELECT * FROM Bill ORDER BY DocNumber DESC`;
 	const billQueryResponse = fetchJSON(
-		`${BASE_URL}${QUICKBOOKS_COMPANY_ID}/query?query=${encodeURIComponent(
-			billQuery,
-		)}`,
+		`${BASE_URL}${getEnv(
+			"QUICKBOOKS_COMPANY_ID",
+		)}/query?query=${encodeURIComponent(billQuery)}`,
 		{
 			method: "get",
 		},
@@ -345,10 +331,6 @@ function getNextBillNumber() {
 }
 
 function uploadReceipt(fileId: string, billId: string) {
-	const QUICKBOOKS_COMPANY_ID = getScriptProperties().getProperty(
-		"QUICKBOOKS_COMPANY_ID",
-	);
-
 	// Retrieve the file from Google Drive
 	const file = DriveApp.getFileById(fileId);
 	const fileBlob = file.getBlob();
@@ -383,7 +365,7 @@ function uploadReceipt(fileId: string, billId: string) {
 	).getBytes();
 
 	// Upload the file to QuickBooks
-	fetchJSON(`${BASE_URL}${QUICKBOOKS_COMPANY_ID}/upload`, {
+	fetchJSON(`${BASE_URL}${getEnv("QUICKBOOKS_COMPANY_ID")}/upload`, {
 		method: "post",
 		contentType: `multipart/form-data; boundary=${boundary}`,
 		payload: fullPayload,
@@ -393,43 +375,42 @@ function uploadReceipt(fileId: string, billId: string) {
 }
 
 function createBill(responseData: ResponseData) {
-	const QUICKBOOKS_COMPANY_ID = getScriptProperties().getProperty(
-		"QUICKBOOKS_COMPANY_ID",
-	);
-
 	const vendorRef = getVendor(responseData);
 	const accountRef = getAccount(responseData);
 	const classRef = getClass(responseData);
 	const billNumber = getNextBillNumber();
 
-	const bill = fetchJSON(`${BASE_URL}${QUICKBOOKS_COMPANY_ID}/bill`, {
-		method: "post",
-		contentType: "application/json",
-		payload: JSON.stringify({
-			VendorRef: {
-				value: vendorRef.Id,
-			},
-			Line: [
-				{
-					DetailType: "AccountBasedExpenseLineDetail",
-					Amount: responseData["Amount"],
-					AccountBasedExpenseLineDetail: {
-						AccountRef: {
-							value: accountRef.Id,
-						},
-						ClassRef: {
-							value: classRef.Id,
-						},
-					},
-					Description: responseData["Description"],
+	const bill = fetchJSON(
+		`${BASE_URL}${getEnv("QUICKBOOKS_COMPANY_ID")}/bill`,
+		{
+			method: "post",
+			contentType: "application/json",
+			payload: JSON.stringify({
+				VendorRef: {
+					value: vendorRef.Id,
 				},
-			],
-			CurrencyRef: {
-				value: "CAD",
-			},
-			DocNumber: billNumber,
-		}),
-	});
+				Line: [
+					{
+						DetailType: "AccountBasedExpenseLineDetail",
+						Amount: responseData["Amount"],
+						AccountBasedExpenseLineDetail: {
+							AccountRef: {
+								value: accountRef.Id,
+							},
+							ClassRef: {
+								value: classRef.Id,
+							},
+						},
+						Description: responseData["Description"],
+					},
+				],
+				CurrencyRef: {
+					value: "CAD",
+				},
+				DocNumber: billNumber,
+			}),
+		},
+	);
 
 	Logger.log(
 		`Bill created: ${billNumber} - ${responseData["Full Name"]} - ${responseData["Amount"]} - ${responseData["Description"]}`,
@@ -441,6 +422,78 @@ function createBill(responseData: ResponseData) {
 	return bill;
 }
 
+function prepareWebhookPayload(responseData: ResponseData, billId: string) {
+	const receiptUrl = DriveApp.getFileById(responseData["Receipt"]).getUrl();
+
+	const hash = Utilities.computeDigest(
+		Utilities.DigestAlgorithm.SHA_256,
+		getEnv("SECRET_KEY") +
+			billId +
+			responseData["Amount"] +
+			responseData["Account Number"],
+	)
+		.map(byte => (byte + 256).toString(16).slice(-2))
+		.join("");
+
+	const approvalUrl = `https://script.google.com/macros/s/${getEnv(
+		"DEPLOYMENT_ID",
+	)}/exec?token=${hash}&billId=${billId}&amount=${
+		responseData["Amount"]
+	}&accountNumber=${responseData["Account Number"]}`;
+
+	const webhookPayload = {
+		embeds: [
+			{
+				title: `Reimbursement Request #${billId}`,
+				fields: [
+					{
+						name: "Full Name",
+						value: responseData["Full Name"],
+						inline: true,
+					},
+					{
+						name: "Email Address",
+						value: responseData["Email Address"],
+						inline: true,
+					},
+					{
+						name: "Amount",
+						value: responseData["Amount"],
+						inline: true,
+					},
+					{
+						name: "Account Number",
+						value: responseData["Account Number"],
+						inline: true,
+					},
+					{
+						name: "QuickBooks",
+						value: `[View Bill](https://qbo.intuit.com/app/bill?&txnId=${billId})`,
+						inline: true,
+					},
+					{
+						name: "Receipt",
+						value: `[View](${receiptUrl})`,
+						inline: true,
+					},
+					{
+						name: "Description",
+						value: responseData["Description"],
+						inline: false,
+					},
+					{
+						name: "Approve",
+						value: approvalUrl,
+						inline: false,
+					},
+				],
+			},
+		],
+	};
+
+	return webhookPayload;
+}
+
 //#endregion Helpers
 
 //#region Authorization
@@ -450,13 +503,6 @@ function reset() {
 }
 
 function getService() {
-	const QUICKBOOKS_CLIENT_ID = getScriptProperties().getProperty(
-		"QUICKBOOKS_CLIENT_ID",
-	);
-	const QUICKBOOKS_CLIENT_SECRET = getScriptProperties().getProperty(
-		"QUICKBOOKS_CLIENT_SECRET",
-	);
-
 	const config = JSON.parse(
 		UrlFetchApp.fetch(
 			"https://developer.intuit.com/.well-known/openid_configuration",
@@ -466,8 +512,8 @@ function getService() {
 	return OAuth2.createService("Quickbooks")
 		.setAuthorizationBaseUrl(config.authorization_endpoint)
 		.setTokenUrl(config.token_endpoint)
-		.setClientId(QUICKBOOKS_CLIENT_ID)
-		.setClientSecret(QUICKBOOKS_CLIENT_SECRET)
+		.setClientId(getEnv("QUICKBOOKS_CLIENT_ID"))
+		.setClientSecret(getEnv("QUICKBOOKS_CLIENT_SECRET"))
 		.setScope(API_SCOPE)
 		.setCallbackFunction("authCallback")
 		.setParam("response_type", config.response_types_supported[0])
@@ -503,8 +549,12 @@ function logRedirectUri() {
 
 //#region Utilities
 
-function getScriptProperties() {
-	return PropertiesService.getScriptProperties();
+function getEnv(key: string) {
+	const value = PropertiesService.getScriptProperties().getProperty(key);
+	if (!value) {
+		throw new Error(`Script property not found: ${key}`);
+	}
+	return value;
 }
 
 function fetchJSON(
@@ -530,6 +580,16 @@ function fetchJSON(
 
 function logJSON(json: Record<string, any>) {
 	Logger.log(JSON.stringify(json, null, 2));
+}
+
+function sendDiscordWebhook(webhookPayload) {
+	UrlFetchApp.fetch(getEnv("DISCORD_WEBHOOK_URL"), {
+		method: "post",
+		contentType: "application/json",
+		payload: JSON.stringify(webhookPayload),
+	});
+
+	Logger.log("Discord webhook sent successfully");
 }
 
 //#endregion Utilities
