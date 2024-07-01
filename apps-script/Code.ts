@@ -183,7 +183,12 @@ function onFormSubmit(e: GoogleAppsScript.Events.FormsOnFormSubmit) {
 	const responseData = itemResponses.reduce((acc, item) => {
 		acc[item.getItem().getTitle()] = item.getResponse();
 		return acc;
-	}, {} as ResponseData);
+	}, {} as Record<string, string | string[] | string[][]>);
+
+	// Check if the form submission is valid
+	if (!isValidResponseData(responseData)) {
+		throw new Error("Invalid form submission");
+	}
 
 	try {
 		const bill = createBill(responseData);
@@ -191,11 +196,10 @@ function onFormSubmit(e: GoogleAppsScript.Events.FormsOnFormSubmit) {
 	} catch (err) {
 		// Send a Discord webhook with the error message
 		sendDiscordWebhook({
-			content: `Error: ${err.message}`,
+			content: `Error: ${err instanceof Error ? err.message : err}`,
 		});
 		throw err;
 	}
-	return 0;
 }
 
 //#region Helpers
@@ -435,7 +439,11 @@ function prepareWebhookPayload(responseData: ResponseData, billId: string) {
 		.map(byte => (byte + 256).toString(16).slice(-2))
 		.join("");
 
-	const approvalUrl = `${getEnv("CLOUDFLARE_URL")}/?token=${hash}&billId=${billId}&amount=${responseData["Amount"]}&accountNumber=${responseData["Account Number"]}`;
+	const approvalUrl = `${getEnv(
+		"CLOUDFLARE_URL",
+	)}/?token=${hash}&billId=${billId}&amount=${
+		responseData["Amount"]
+	}&accountNumber=${responseData["Account Number"]}`;
 
 	const webhookPayload = {
 		embeds: [
@@ -578,7 +586,7 @@ function logJSON(json: Record<string, any>) {
 	Logger.log(JSON.stringify(json, null, 2));
 }
 
-function sendDiscordWebhook(webhookPayload) {
+function sendDiscordWebhook(webhookPayload: any) {
 	UrlFetchApp.fetch(getEnv("DISCORD_WEBHOOK_URL"), {
 		method: "post",
 		contentType: "application/json",
@@ -586,6 +594,16 @@ function sendDiscordWebhook(webhookPayload) {
 	});
 
 	Logger.log("Discord webhook sent successfully");
+}
+
+function isValidResponseData(responseData: any): responseData is ResponseData {
+	for (const field of Object.keys(responseData)) {
+		if (!responseData[field]) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 //#endregion Utilities
