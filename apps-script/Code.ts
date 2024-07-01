@@ -2,7 +2,6 @@ declare const OAuth2: any;
 
 const BASE_URL = "https://quickbooks.api.intuit.com/v3/company/";
 const API_SCOPE = "com.intuit.quickbooks.accounting";
-const CLOUDFLARE_URL = "https://reimbursement-form-automation.hackthehill.org";
 
 type VendorQueryResponse = {
 	QueryResponse: {
@@ -436,7 +435,7 @@ function prepareWebhookPayload(responseData: ResponseData, billId: string) {
 		.map(byte => (byte + 256).toString(16).slice(-2))
 		.join("");
 
-	const approvalUrl = `${CLOUDFLARE_URL}/?token=${hash}&billId=${billId}&amount=${responseData["Amount"]}&accountNumber=${responseData["Account Number"]}`;
+	const approvalUrl = `${getEnv("CLOUDFLARE_URL")}/?token=${hash}&billId=${billId}&amount=${responseData["Amount"]}&accountNumber=${responseData["Account Number"]}`;
 
 	const webhookPayload = {
 		embeds: [
