@@ -25,23 +25,12 @@ async function handleRequest(request: Request, env: Env) {
 		});
 	}
 
-	// Get from request headers
 	const user = request.headers.get("Cf-Access-Authenticated-User-Email");
 	if (!user) {
 		return new Response("Unauthorized", {
 			status: 401,
 			headers: { "Content-Type": "text/html" },
 		});
-	}
-
-	if (!(await isAuthorizedUser(env.AUTHORIZED_EMAILS, user))) {
-		return new Response(
-			"You are not authorized to sign this reimbursement.",
-			{
-				status: 403,
-				headers: { "Content-Type": "text/html" },
-			},
-		);
 	}
 
 	const expectedHash = await generateHash(
@@ -53,7 +42,7 @@ async function handleRequest(request: Request, env: Env) {
 
 		const signatures = await getSignatures(env, billId);
 		const uniqueSignatories = Array.from(
-			new Set(signatures.map((sig: { user: any }) => sig.user)),
+			new Set(signatures.map((sig: { user: string }) => sig.user)),
 		);
 
 		if (uniqueSignatories.length >= 2) {
@@ -81,21 +70,16 @@ async function handleRequest(request: Request, env: Env) {
 	} else {
 		return new Response("Invalid token.", {
 			status: 401,
-			headers: {"Content-Type": "text/html",
-			},
+			headers: { "Content-Type": "text/html" },
 		});
 	}
-}
-
-async function isAuthorizedUser(authorizedEmails: string, email: string) {
-	const authorizedList = authorizedEmails.split(",");
-	return authorizedList.includes(email);
 }
 
 async function logSignature(env: Env, billId: string, user: string) {
 	const signatures = await getSignatures(env, billId);
 	signatures.push({ date: new Date().toISOString(), user });
 	await env.SIGNATURES.put(billId, JSON.stringify(signatures));
+
 	await sendDiscordWebhook(env.DISCORD_WEBHOOK_URL, {
 		content: `Reimbursement request #${billId} has been signed by ${user}.`,
 	});
