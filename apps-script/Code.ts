@@ -435,11 +435,7 @@ function prepareWebhookPayload(responseData: ResponseData, billId: string) {
 		.map(byte => (byte + 256).toString(16).slice(-2))
 		.join("");
 
-	const approvalUrl = `https://script.google.com/macros/s/${getEnv(
-		"DEPLOYMENT_ID",
-	)}/exec?token=${hash}&billId=${billId}&amount=${
-		responseData["Amount"]
-	}&accountNumber=${responseData["Account Number"]}`;
+	const approvalUrl = `https://reimbursement-quickbooks-integration.hack-the-hill.workers.dev?token=${hash}&billId=${billId}&amount=${responseData["Amount"]}&accountNumber=${responseData["Account Number"]}`;
 
 	const webhookPayload = {
 		embeds: [
