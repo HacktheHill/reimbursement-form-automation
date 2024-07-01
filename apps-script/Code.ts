@@ -167,6 +167,7 @@ type ResponseData = {
 	Description: string;
 	"Account Number": string;
 	Class: string;
+	"Transaction Date": string;
 	Receipt: string;
 };
 
@@ -393,6 +394,7 @@ function createBill(responseData: ResponseData) {
 				VendorRef: {
 					value: vendorRef.Id,
 				},
+				TxnDate: responseData["Transaction Date"],
 				Line: [
 					{
 						DetailType: "AccountBasedExpenseLineDetail",
