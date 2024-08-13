@@ -544,11 +544,38 @@ function getStateToken(callbackFunction: string) {
 		.withMethod(callbackFunction)
 		.withTimeout(120)
 		.createToken();
+	Logger.log(`State token: ${stateToken}`);
 	return stateToken;
 }
 
 function logRedirectUri() {
 	Logger.log(getService().getRedirectUri());
+}
+
+function authorizeQuickBooks() {
+	const service = getService();
+	if (!service.hasAccess()) {
+		const authorizationUrl = service.getAuthorizationUrl();
+		Logger.log(
+			"Open the following URL and grant access: %s",
+			authorizationUrl,
+		);
+		return HtmlService.createHtmlOutput(
+			`<a href="${authorizationUrl}" target="_blank">Click here to authorize QuickBooks</a>`,
+		);
+	} else {
+		Logger.log("QuickBooks API is already authorized.");
+	}
+}
+
+function testAuthorization() {
+	const service = getService();
+	if (service.hasAccess()) {
+		Logger.log("Authorization is working correctly.");
+	} else {
+		Logger.log("Authorization required.");
+		authorizeQuickBooks(); // This will output the authorization URL if needed
+	}
 }
 
 //#endregion Authorization
