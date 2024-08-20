@@ -233,7 +233,7 @@ function getVendor(responseData: ResponseData) {
 						DisplayName: responseData["Full Name"],
 					}),
 				},
-			);
+			).Vendor;
 			Logger.log(`Vendor created: ${responseData["Full Name"]}`);
 			return newVendor;
 		} else if (vendors.length > 1) {
