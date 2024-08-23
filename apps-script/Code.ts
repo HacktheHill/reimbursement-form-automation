@@ -266,7 +266,7 @@ function getAccount(responseData: ResponseData) {
 		// Filter the accounts by account number
 		const accounts = accountQueryResponse.QueryResponse.Account.filter(
 			account => account.AcctNum === responseData["Account Number"],
-		);
+		) ?? [];
 
 		// Throw an error if no account is found or multiple accounts are found
 		if (accounts.length === 0) {
@@ -298,7 +298,7 @@ function getClass(responseData: ResponseData) {
 			{ method: "get" },
 		) as ClassQueryResponse;
 
-		const classes = ClassQueryResponse.QueryResponse.Class;
+		const classes = ClassQueryResponse.QueryResponse.Class ?? [];
 
 		// Throw an error if no class is found or multiple classes are found
 		if (classes.length === 0) {
