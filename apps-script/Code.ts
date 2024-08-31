@@ -264,9 +264,10 @@ function getAccount(responseData: ResponseData) {
 		) as AccountQueryResponse;
 
 		// Filter the accounts by account number
-		const accounts = accountQueryResponse.QueryResponse.Account.filter(
-			account => account.AcctNum === responseData["Account Number"],
-		) ?? [];
+		const accounts =
+			accountQueryResponse.QueryResponse.Account.filter(
+				account => account.AcctNum === responseData["Account Number"],
+			) ?? [];
 
 		// Throw an error if no account is found or multiple accounts are found
 		if (accounts.length === 0) {
@@ -328,23 +329,15 @@ function getNextBillNumber() {
 
 		const bills = billQueryResponse.QueryResponse.Bill ?? [];
 
-		// Get the latest correctly formatted bill number
-		const latestBillNumber = bills.find(bill =>
-			/^\d{6}$/.test(bill.DocNumber),
-		)?.DocNumber;
+		// Get the latest bill number
+		const latestBillNumber = parseInt(bills[0]?.DocNumber);
 
-		// Throw an error if no bill is found
-		if (!latestBillNumber) {
-			throw new Error(
-				"No bill found from which to get the next bill number",
-			);
+		if (!latestBillNumber || isNaN(latestBillNumber)) {
+			throw new Error("Error getting latest bill number");
 		}
 
 		// Increment the bill number
-		const nextBillNumber = (parseInt(latestBillNumber) + 1)
-			.toString()
-			.padStart(6, "0");
-		return nextBillNumber;
+		return latestBillNumber + 1;
 	} catch (err) {
 		logError(err as Error, "Error getting next bill number");
 		throw err;
