@@ -318,8 +318,8 @@ function getClass(responseData: ResponseData) {
 
 function getNextBillNumber() {
 	try {
-		// Query the QuickBooks API to get the latest bill number
-		const billQuery = `SELECT * FROM Bill ORDER BY DocNumber DESC`;
+		// Query the QuickBooks API to get all the bill numbers
+		const billQuery = `SELECT DocNumber FROM Bill`;
 		const billQueryResponse = fetchJSON(
 			`${BASE_URL}${getEnv(
 				"QUICKBOOKS_COMPANY_ID",
@@ -329,14 +329,19 @@ function getNextBillNumber() {
 
 		const bills = billQueryResponse.QueryResponse.Bill ?? [];
 
-		// Get the latest bill number
-		const latestBillNumber = parseInt(bills[0]?.DocNumber);
-
-		if (!latestBillNumber || isNaN(latestBillNumber)) {
-			throw new Error("Error getting latest bill number");
+		// If there are no bills, start with a default number
+		if (bills.length === 0) {
+			return 1;
 		}
 
-		// Increment the bill number
+		// Extract and sort the DocNumbers as integers
+		const sortedBillNumbers = bills
+			.map((bill: { DocNumber: string }) => parseInt(bill.DocNumber, 10))
+			.filter((num: number) => !isNaN(num))
+			.sort((a: number, b: number) => b - a);
+
+		// Get the latest bill number and increment it
+		const latestBillNumber = sortedBillNumbers[0];
 		return latestBillNumber + 1;
 	} catch (err) {
 		logError(err as Error, "Error getting next bill number");
