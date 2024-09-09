@@ -504,6 +504,7 @@ function prepareWebhookPayload(responseData: ResponseData, billId: string) {
 	}&accountNumber=${responseData["Account Number"]}`;
 
 	const webhookPayload = {
+		content: "<@&1197660176564621363>",
 		embeds: [
 			{
 				title: `Reimbursement Request #${billId}`,
