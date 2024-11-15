@@ -41,7 +41,7 @@ async function handleRequest(request: Request, env: Env) {
 
 		const signatures = await getSignatures(env, billId);
 		const uniqueSignatories = Array.from(
-			new Set(signatures.map((sig: { user: string }) => sig.user)),
+			new Set(signatures.map((sig: { user: string }) => sig.user.split("@")[0])),
 		);
 
 		if (uniqueSignatories.length >= 2) {
