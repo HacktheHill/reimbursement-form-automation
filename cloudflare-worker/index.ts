@@ -1,6 +1,5 @@
 interface Env {
 	SECRET_KEY: string;
-	AUTHORIZED_EMAILS: string;
 	DISCORD_WEBHOOK_URL: string;
 	SIGNATURES: KVNamespace;
 }
