@@ -661,13 +661,66 @@ function fetchJSON(
 		muteHttpExceptions: true,
 	});
 
+	const content = response.getContentText();
+	const statusCode = response.getResponseCode();
+
+	Logger.log(`API Request: ${url}`);
+	Logger.log(`Response Code: ${statusCode}`);
+	Logger.log(`Response Content: ${content}`);
+
 	try {
-		return JSON.parse(response.getContentText());
+		const jsonResponse = JSON.parse(content);
+
+		if (statusCode >= 400) {
+			if (jsonResponse?.Fault?.Error) {
+				for (const error of jsonResponse.Fault.Error) {
+					Logger.log(
+						`QuickBooks API Error [${error.code}]: ${error.Message}`,
+					);
+
+					if (error.code === "5020") {
+						Logger.log(
+							"Permission denied. Resetting authentication.",
+						);
+
+						getService().reset();
+						Logger.log("OAuth token reset.");
+
+						authorizeQuickBooks();
+						Logger.log(
+							"Open the authorization link to reauthorize QuickBooks.",
+						);
+
+						throw new Error(
+							"QuickBooks API permission error. Reauthorization required.",
+						);
+					}
+				}
+			}
+			throw new Error(
+				`QuickBooks API Request Failed: ${JSON.stringify(
+					jsonResponse,
+					null,
+					2,
+				)}`,
+			);
+		}
+
+		return jsonResponse;
 	} catch (err) {
 		Logger.log(
-			`Error parsing response from URL: ${url}, Response: ${response.getContentText()}`,
+			"Error parsing JSON response. This may be a permission issue.",
 		);
-		throw err;
+
+		getService().reset();
+		Logger.log("OAuth token reset.");
+
+		authorizeQuickBooks();
+		Logger.log("Open the authorization link to reauthorize QuickBooks.");
+
+		throw new Error(
+			"QuickBooks API permission error. Reauthorization required.",
+		);
 	}
 }
 
