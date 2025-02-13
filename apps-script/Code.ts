@@ -217,7 +217,7 @@ function getVendor(responseData: ResponseData) {
 			{ method: "get" },
 		) as VendorQueryResponse;
 
-		const vendors = VendorQueryResponse.QueryResponse.Vendor ?? [];
+		const vendors = VendorQueryResponse.QueryResponse?.Vendor ?? [];
 
 		// Create the vendor if it doesn't exist
 		if (vendors.length === 0) {
@@ -265,7 +265,7 @@ function getAccount(responseData: ResponseData) {
 
 		// Filter the accounts by account number
 		const accounts =
-			accountQueryResponse.QueryResponse.Account.filter(
+			accountQueryResponse.QueryResponse?.Account.filter(
 				account => account.AcctNum === responseData["Account Number"],
 			) ?? [];
 
@@ -299,7 +299,7 @@ function getClass(responseData: ResponseData) {
 			{ method: "get" },
 		) as ClassQueryResponse;
 
-		const classes = ClassQueryResponse.QueryResponse.Class ?? [];
+		const classes = ClassQueryResponse.QueryResponse?.Class ?? [];
 
 		// Throw an error if no class is found or multiple classes are found
 		if (classes.length === 0) {
@@ -327,7 +327,7 @@ function getNextBillNumber() {
 			{ method: "get" },
 		) as BillQueryResponse;
 
-		const bills = billQueryResponse.QueryResponse.Bill ?? [];
+		const bills = billQueryResponse.QueryResponse?.Bill ?? [];
 
 		// If there are no bills, start with a default number
 		if (bills.length === 0) {
