@@ -464,7 +464,7 @@ function createBill(responseData: ResponseData) {
 			},
 		);
 
-		if (!bill || !bill.Bill) {
+		if (!bill?.Bill) {
 			throw new Error(
 				`Bill creation failed: ${JSON.stringify(bill, null, 2)}`,
 			);
