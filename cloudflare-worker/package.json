@@ -6,7 +6,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/workers-types": "^4.20240620.0",
-		"wrangler": "^4.54.0"
+		"wrangler": "^4.59.1"
 	},
 	"overrides": {
 		"@types/node": "20.8.3"
