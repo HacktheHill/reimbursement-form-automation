@@ -3,7 +3,7 @@
 		"target": "ESNext",
 		"module": "ESNext",
 		"moduleResolution": "Node",
-		"lib": ["ESNext", "WebWorker"],
+		"lib": ["ESNext"],
 		"strict": true,
 		"types": ["@cloudflare/workers-types"]
 	},
